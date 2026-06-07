@@ -1,10 +1,15 @@
 <div class="page">
   <div class="page-header">
     <h1 class="page-title">Transactions</h1>
-    <button class="btn-primary" (click)="openAddModal()">+ Add Transaction</button>
+    <button class="btn-primary" (click)="openAddModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="16">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Add Transaction
+    </button>
   </div>
 
-  <div class="filter-bar">
+  <div class="filter-bar stagger-1">
     <input
       class="filter-input"
       type="text"
@@ -39,7 +44,7 @@
 
   <!-- Table -->
   @else {
-    <div class="table-wrapper">
+    <div class="table-wrapper stagger-2">
       <table class="data-table">
         <thead>
           <tr>
@@ -58,7 +63,16 @@
           @for (tx of transactions(); track tx.id) {
             <tr>
               <td class="text-secondary">{{ formatDate(tx.executedAt) }}</td>
-              <td class="asset-cell">{{ tx.symbol }}</td>
+              <td class="asset-cell">
+                <div class="asset-info">
+                  @if (tx.imageUrl) {
+                    <img class="asset-img" [src]="tx.imageUrl" [alt]="tx.symbol" />
+                  } @else {
+                    <span class="asset-img-placeholder">{{ tx.symbol[0] }}</span>
+                  }
+                  {{ tx.symbol }}
+                </div>
+              </td>
               <td>
                 <span [class]="tx.type.toLowerCase() === 'buy' ? 'badge-success' : 'badge-danger'">
                   {{ tx.type }}
@@ -77,7 +91,7 @@
                 </button>
                 <button class="icon-btn icon-btn--danger" title="Delete transaction" (click)="deleteTx(tx.id)">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg>
                 </button>
               </td>
@@ -102,8 +116,38 @@
 <app-modal title="Add Transaction" [isOpen]="addModalOpen()" (closed)="closeAddModal()">
   <div class="form-grid">
     <div class="form-group">
-      <label>Asset Symbol *</label>
-      <input class="form-input" type="text" placeholder="BTC" [value]="form.symbol()" (input)="form.symbol.set($any($event.target).value)" />
+      <label>Asset *</label>
+      <div class="coin-search-wrapper">
+        <input
+          class="form-input"
+          type="text"
+          placeholder="Search coin… (e.g. BTC, Ethereum)"
+          [value]="coinQuery()"
+          (input)="onCoinInput($any($event.target).value)"
+          (blur)="closeDropdownDelayed()"
+          autocomplete="off" />
+        @if (coinSearching()) {
+          <span class="coin-search-spinner"></span>
+        }
+        @if (showDropdown() && coinSuggestions().length > 0) {
+          <div class="coin-dropdown">
+            @for (coin of coinSuggestions(); track coin.coinId) {
+              <button type="button" class="coin-option" (mousedown)="selectCoin(coin)">
+                @if (coin.imageUrl) {
+                  <img class="coin-option-img" [src]="coin.imageUrl" [alt]="coin.symbol" />
+                } @else {
+                  <span class="coin-option-img coin-option-img--placeholder">{{ coin.symbol[0] }}</span>
+                }
+                <span class="coin-option-symbol">{{ coin.symbol }}</span>
+                <span class="coin-option-name">{{ coin.name }}</span>
+                @if (coin.rank) {
+                  <span class="coin-option-rank">#{{ coin.rank }}</span>
+                }
+              </button>
+            }
+          </div>
+        }
+      </div>
     </div>
     <div class="form-group">
       <label>Operation</label>

@@ -4,14 +4,16 @@ using Investe.Application.Services;
 using Investe.Infrastructure.Persistence;
 using Investe.Infrastructure.Persistence.Repositories;
 using Investe.Infrastructure.Persistence.Repositories.Implementations;
-using Investe.Infrastructure.Persistence.Repositories.Common;
 using Investe.Infrastructure.Persistence.UnitOfWork;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using QuestPDF.Infrastructure;
 using Serwer.BackgroundServices;
 using Serwer.Middleware;
+using Polly;
+using Polly.Extensions.Http;
 
 namespace Serwer
 {
@@ -19,7 +21,22 @@ namespace Serwer
     {
         public static void Main(string[] args)
         {
+            QuestPDF.Settings.License = LicenseType.Community;
+
             var builder = WebApplication.CreateBuilder(args);
+            
+            // ── Polly Policies ────────────────────────────────────────────────
+            var retryPolicy = HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+
+            var circuitBreakerPolicy = HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
+
+            // Add local configuration for secrets
+            builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true);
 
             // ── CORS ──────────────────────────────────────────────────────────
             builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
@@ -28,7 +45,7 @@ namespace Serwer
                         "http://localhost:4200",
                         Environment.GetEnvironmentVariable("ALLOWED_ORIGIN") ?? "https://placeholder.vercel.app")
                     .AllowAnyHeader()
-                    .AllowAnyMethod()));
+                    .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")));
 
             // ── Database ──────────────────────────────────────────────────────
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -50,6 +67,13 @@ namespace Serwer
                     client.DefaultRequestHeaders.Add("x-cg-demo-api-key", apiKey);
             });
 
+            builder.Services.AddHttpClient("Gemini", client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["Gemini:BaseUrl"]!);
+            })
+            .AddPolicyHandler(retryPolicy)
+            .AddPolicyHandler(circuitBreakerPolicy);
+
             // ── Repositories & Unit of Work ───────────────────────────────────
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<IWalletRepository, WalletRepository>();
@@ -57,16 +81,23 @@ namespace Serwer
             builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
             builder.Services.AddScoped<IPriceAlertRepository, PriceAlertRepository>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
-            builder.Services.AddScoped<IPriceHistoryCacheRepository, PriceHistoryCacheRepository>();
+            builder.Services.AddScoped<IReportRepository, ReportRepository>();
+            builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+            builder.Services.AddScoped<IWatchlistRepository, WatchlistRepository>();
 
             // ── Application Services ──────────────────────────────────────────
             builder.Services.AddScoped<ICoinPriceService, CoinPriceService>();
+            builder.Services.AddScoped<ICoinSearchService, CoinSearchService>();
             builder.Services.AddScoped<IWalletService, WalletService>();
             builder.Services.AddScoped<ITransactionService, TransactionService>();
             builder.Services.AddScoped<IPortfolioService, PortfolioService>();
             builder.Services.AddScoped<IPriceAlertService, PriceAlertService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IReportService, ReportService>();
+            builder.Services.AddScoped<IChatService, ChatService>();
+            builder.Services.AddScoped<IWatchlistService, WatchlistService>();
+            builder.Services.AddScoped<IGeminiApiService, GeminiApiService>();
 
             // ── Background Services ───────────────────────────────────────────
             builder.Services.AddHostedService<PriceAlertBackgroundService>();
@@ -134,14 +165,7 @@ namespace Serwer
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                if (app.Environment.IsDevelopment())
-                {
-                    db.Database.Migrate();
-                }
-                else
-                {
-                    db.Database.Migrate();
-                }
+                db.Database.Migrate();
             }
 
             app.Run();

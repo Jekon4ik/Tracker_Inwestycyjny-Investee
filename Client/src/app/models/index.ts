@@ -45,6 +45,8 @@ export interface WalletDto {
   assetCount: number;
   pnl: number;
   pnlPercent: number;
+  ownerId: string;
+  sharedWithEmails: string[];
 }
 
 export interface WalletDetailsDto extends WalletDto {
@@ -60,6 +62,10 @@ export interface CreateWalletDto {
 export interface UpdateWalletDto {
   name: string;
   description?: string;
+}
+
+export interface ShareWalletDto {
+  email: string;
 }
 
 // Transaction models
@@ -79,6 +85,7 @@ export interface TransactionDto {
   costBasisSource?: string;
   executedAt: string;
   notes: string;
+  imageUrl?: string;
 }
 
 export interface TransactionCreateDto {
@@ -93,6 +100,16 @@ export interface TransactionCreateDto {
   costBasisPerUnit?: number;
   executedAt?: string;
   notes: string;
+  imageUrl?: string;
+}
+
+// Coin search
+export interface CoinSearchDto {
+  coinId: string;
+  symbol: string;
+  name: string;
+  imageUrl?: string;
+  rank?: number;
 }
 
 export interface TransactionUpdateDto {
@@ -109,6 +126,7 @@ export interface TransactionUpdateDto {
 export interface PositionDto {
   symbol: string;
   name: string;
+  imageUrl?: string;
   quantity: number;
   avgCostBasis: number;
   currentPrice: number;
@@ -160,4 +178,39 @@ export interface CreateAlertDto {
 export interface UpdateAlertDto {
   targetPrice?: number;
   direction?: AlertDirection;
+}
+
+// Report models
+export interface ReportDto {
+  id: string;
+  title: string;
+  fileName: string;
+  type: string;
+  walletName?: string;
+  fileSizeBytes: number;
+  generatedAt: string;
+}
+
+// Chat models
+export interface ChatMessageDto {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+// Watchlist models
+export interface WatchlistItemDto {
+  id: string;
+  coinId: string;
+  symbol: string;
+  imageUrl?: string;
+  currentPrice: number;
+  addedAt: string;
+}
+
+export interface AddToWatchlistDto {
+  coinId: string;
+  symbol: string;
+  imageUrl?: string;
 }
